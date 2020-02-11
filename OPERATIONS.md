@@ -127,4 +127,5 @@ For restoring RocketChat database to a previous state you will need to :
 The following tasks has not been automated yet, and should be automate in the near future
 
 - On a weekly basis check the backup PVC to make sure it is healthy and has enough space available.
+- On a daily basis, monitor pods log for any error (TODO:Needs an moniroting/alerting tool)
 - prune/delete old archive backups
