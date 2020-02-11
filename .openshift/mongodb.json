@@ -1,0 +1,767 @@
+{
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "mongodb"
+  },
+  "parameters": [
+    {
+      "name": "INSTANCE",
+      "required": true
+    },
+    {
+      "name": "MONGODB_REPLICA_KEY",
+      "required": true,
+      "generate": "expression",
+      "from": "[a-zA-Z]{1}[a-zA-Z0-9]{8}[a-zA-Z]{1}"
+    },
+    {
+      "name": "MONGODB_ROOT_PASSWORD",
+      "required": true,
+      "generate": "expression",
+      "from": "[a-zA-Z]{1}[a-zA-Z0-9]{12}[a-zA-Z]{1}"
+    },
+    {
+      "name": "MONGODB_PASSWORD",
+      "required": true,
+      "generate": "expression",
+      "from": "[a-zA-Z]{1}[a-zA-Z0-9]{12}[a-zA-Z]{1}"
+    }
+  ],
+  "objects": [
+    {
+      "apiVersion": "v1",
+      "kind": "Secret",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb"
+      },
+      "type": "Opaque",
+      "stringData": {
+        "mongodb-replica-set-key": "${MONGODB_REPLICA_KEY}",
+        "mongodb-root-password": "${MONGODB_ROOT_PASSWORD}",
+        "mongodb-password": "${MONGODB_PASSWORD}"
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb-arbiter"
+      },
+      "spec": {
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "component": "arbiter",
+            "app.kubernetes.io/name": "mongodb",
+            "app.kubernetes.io/instance": "${INSTANCE}"
+          }
+        },
+        "serviceName": "${INSTANCE}-mongodb-headless",
+        "template": {
+          "metadata": {
+            "labels": {
+              "chart": "mongodb-7.8.2",
+              "component": "arbiter",
+              "app.kubernetes.io/name": "mongodb",
+              "app.kubernetes.io/instance": "${INSTANCE}"
+            },
+            "annotations": {
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "MONGODB_POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_SYSTEM_LOG_VERBOSITY",
+                    "value": "0"
+                  },
+                  {
+                    "name": "MONGODB_DISABLE_SYSTEM_LOG",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_MODE",
+                    "value": "arbiter"
+                  },
+                  {
+                    "name": "MONGODB_PRIMARY_HOST",
+                    "value": "${INSTANCE}-mongodb"
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_NAME",
+                    "value": "rs0"
+                  },
+                  {
+                    "name": "MONGODB_ADVERTISED_HOSTNAME",
+                    "value": "$(MONGODB_POD_NAME).${INSTANCE}-mongodb-headless.$(MONGODB_POD_NAMESPACE).svc.cluster.local"
+                  },
+                  {
+                    "name": "MONGODB_PRIMARY_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-root-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-replica-set-key",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_IPV6",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_DIRECTORY_PER_DB",
+                    "value": "no"
+                  }
+                ],
+                "image": "mongodb:4.2.3",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "tcpSocket": {
+                    "port": "mongodb"
+                  },
+                  "timeoutSeconds": 5
+                },
+                "name": "mongodb-arbiter",
+                "ports": [
+                  {
+                    "containerPort": 27017,
+                    "name": "mongodb"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "tcpSocket": {
+                    "port": "mongodb"
+                  },
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "20m",
+                    "memory": "256Mi"
+                  },
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "200Mi"
+                  }
+                },
+                "volumeMounts": null
+              }
+            ],
+            "volumes": null
+          }
+        },
+        "updateStrategy": {
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb-primary"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "component": "primary",
+            "app.kubernetes.io/name": "mongodb",
+            "app.kubernetes.io/instance": "${INSTANCE}"
+          }
+        },
+        "serviceName": "${INSTANCE}-mongodb-headless",
+        "template": {
+          "metadata": {
+            "labels": {
+              "chart": "mongodb-7.8.2",
+              "component": "primary",
+              "app.kubernetes.io/name": "mongodb",
+              "app.kubernetes.io/instance": "${INSTANCE}"
+            },
+            "annotations": {
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "MONGODB_POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_SYSTEM_LOG_VERBOSITY",
+                    "value": "0"
+                  },
+                  {
+                    "name": "MONGODB_DISABLE_SYSTEM_LOG",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_MODE",
+                    "value": "primary"
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_NAME",
+                    "value": "rs0"
+                  },
+                  {
+                    "name": "MONGODB_ADVERTISED_HOSTNAME",
+                    "value": "$(MONGODB_POD_NAME).${INSTANCE}-mongodb-headless.$(MONGODB_POD_NAMESPACE).svc.cluster.local"
+                  },
+                  {
+                    "name": "MONGODB_USERNAME",
+                    "value": "rocketchat"
+                  },
+                  {
+                    "name": "MONGODB_DATABASE",
+                    "value": "rocketchat"
+                  },
+                  {
+                    "name": "MONGODB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-root-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-replica-set-key",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_IPV6",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_DIRECTORY_PER_DB",
+                    "value": "no"
+                  }
+                ],
+                "image": "mongodb:4.2.3",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "exec": {
+                    "command": [
+                      "pgrep",
+                      "mongod"
+                    ]
+                  },
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "mongodb-primary",
+                "ports": [
+                  {
+                    "containerPort": 27017,
+                    "name": "mongodb"
+                  }
+                ],
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "mongo",
+                      "--eval",
+                      "db.adminCommand('ping')"
+                    ]
+                  },
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "50m",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "256Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/bitnami/mongodb",
+                    "name": "datadir",
+                    "subPath": null
+                  }
+                ]
+              }
+            ],
+            "initContainers": null,
+            "volumes": [
+              {
+                "name": "datadir",
+                "emptyDir": {}
+              }
+            ]
+          }
+        },
+        "updateStrategy": {
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb-secondary"
+      },
+      "spec": {
+        "podManagementPolicy": "Parallel",
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "component": "secondary",
+            "app.kubernetes.io/name": "mongodb",
+            "app.kubernetes.io/instance": "${INSTANCE}"
+          }
+        },
+        "serviceName": "${INSTANCE}-mongodb-headless",
+        "template": {
+          "metadata": {
+            "labels": {
+              "chart": "mongodb-7.8.2",
+              "component": "secondary",
+              "app.kubernetes.io/name": "mongodb",
+              "app.kubernetes.io/instance": "${INSTANCE}"
+            },
+            "annotations": {
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "MONGODB_POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_SYSTEM_LOG_VERBOSITY",
+                    "value": "0"
+                  },
+                  {
+                    "name": "MONGODB_DISABLE_SYSTEM_LOG",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_MODE",
+                    "value": "secondary"
+                  },
+                  {
+                    "name": "MONGODB_PRIMARY_HOST",
+                    "value": "${INSTANCE}-mongodb"
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_NAME",
+                    "value": "rs0"
+                  },
+                  {
+                    "name": "MONGODB_ADVERTISED_HOSTNAME",
+                    "value": "$(MONGODB_POD_NAME).${INSTANCE}-mongodb-headless.$(MONGODB_POD_NAMESPACE).svc.cluster.local"
+                  },
+                  {
+                    "name": "MONGODB_PRIMARY_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-root-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_REPLICA_SET_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-replica-set-key",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_IPV6",
+                    "value": "no"
+                  },
+                  {
+                    "name": "MONGODB_ENABLE_DIRECTORY_PER_DB",
+                    "value": "no"
+                  }
+                ],
+                "image": "mongodb:4.2.3",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "exec": {
+                    "command": [
+                      "pgrep",
+                      "mongod"
+                    ]
+                  },
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "mongodb-secondary",
+                "ports": [
+                  {
+                    "containerPort": 27017,
+                    "name": "mongodb"
+                  }
+                ],
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "mongo",
+                      "--eval",
+                      "db.adminCommand('ping')"
+                    ]
+                  },
+                  "failureThreshold": 6,
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "50m",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "256Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/bitnami/mongodb",
+                    "name": "datadir",
+                    "subPath": null
+                  }
+                ]
+              }
+            ],
+            "initContainers": null,
+            "volumes": [
+              {
+                "name": "datadir",
+                "emptyDir": {}
+              }
+            ]
+          }
+        },
+        "updateStrategy": {
+          "type": "RollingUpdate"
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb-headless"
+      },
+      "spec": {
+        "clusterIP": "None",
+        "ports": [
+          {
+            "name": "mongodb",
+            "port": 27017
+          }
+        ],
+        "selector": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/instance": "${INSTANCE}"
+        },
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        },
+        "name": "${INSTANCE}-mongodb"
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "mongodb",
+            "port": 27017,
+            "targetPort": "mongodb"
+          }
+        ],
+        "selector": {
+          "component": "primary",
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/instance": "${INSTANCE}"
+        },
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "kind": "CronJob",
+      "apiVersion": "batch/v1beta1",
+      "metadata": {
+        "name": "${INSTANCE}-mongodb-backup",
+        "creationTimestamp": null,
+        "labels": {
+          "app.kubernetes.io/name": "mongodbmongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        }
+      },
+      "spec": {
+        "schedule": "0 0 * * *",
+        "concurrencyPolicy": "Allow",
+        "jobTemplate": {
+          "metadata": {
+            "creationTimestamp": null
+          },
+          "spec": {
+            "template": {
+              "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                  "app.kubernetes.io/name": "mongodb"
+                }
+              },
+              "spec": {
+                "containers": [
+                  {
+                    "name": "${INSTANCE}-mongodb-backup",
+                    "image": "mongodb:4.2.3",
+                    "command": [
+                      "bash",
+                      "-c",
+                      "mongodump  --oplog --gzip \"--archive=/media/backup/rocketchat-$(date '+%Y-%m-%dT%H-%M-%S').gz\"  --host=\"${MONGODB_REPLICA_SET_NAME}/${INSTANCE}-mongodb:27017\" \"--username=root\" \"--password=${MONGODB_ROOT_PASSWORD}\" --authenticationDatabase admin && cat <(find /media/backup -maxdepth 1 -type f) <(find /media/backup -maxdepth 1 -type f | sort | tail -n10) | sort | uniq -c | awk '{if ($1 == 1) {print $2}}' | xargs -t -I {} rm {} && find /media/backup -maxdepth 1 -type f"
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "30m",
+                        "memory": "512Mi"
+                      },
+                      "limits": {
+                        "cpu": "1",
+                        "memory": "1Gi"
+                      }
+                    },
+                    "env": [
+                      {
+                        "name": "MONGODB_REPLICA_SET_NAME",
+                        "value": "rs0"
+                      },
+                      {
+                        "name": "MONGODB_ROOT_PASSWORD",
+                        "valueFrom": {
+                          "secretKeyRef": {
+                            "key": "mongodb-root-password",
+                            "name": "${INSTANCE}-mongodb"
+                          }
+                        }
+                      }
+                    ],
+                    "volumeMounts": [
+                      {
+                        "name": "backup",
+                        "mountPath": "/media/backup"
+                      }
+                    ]
+                  }
+                ],
+                "restartPolicy": "Never",
+                "volumes": [
+                  {
+                    "name": "backup",
+                    "persistentVolumeClaim": {
+                      "claimName": "${INSTANCE}-mongodb-backup"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "status": {}
+    },
+    {
+      "kind": "PersistentVolumeClaim",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${INSTANCE}-mongodb-backup",
+        "creationTimestamp": null,
+        "labels": {
+          "backup": "true",
+          "app.kubernetes.io/name": "mongodb",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "mongodb"
+        }
+      },
+      "spec": {
+        "accessModes": [
+          "ReadWriteOnce"
+        ],
+        "resources": {
+          "requests": {
+            "storage": "1Gi"
+          }
+        }
+      }
+    },
+    {
+      "kind": "ImageStream",
+      "apiVersion": "image.openshift.io/v1",
+      "metadata": {
+        "name": "mongodb",
+        "creationTimestamp": null
+      },
+      "spec": {
+        "lookupPolicy": {
+          "local": true
+        },
+        "tags": [
+          {
+            "name": "4.2.3",
+            "annotations": null,
+            "from": {
+              "kind": "DockerImage",
+              "name": "docker.io/bitnami/mongodb:4.2.3-debian-10-r14"
+            },
+            "generation": null,
+            "importPolicy": {},
+            "referencePolicy": {
+              "type": "Local"
+            }
+          }
+        ]
+      },
+      "status": {
+        "dockerImageRepository": ""
+      }
+    }
+  ]
+}

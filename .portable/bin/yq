@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+YQ_CMD="${PORTABLE_CACHE_DIR}/yq/bin/yq"
+if [ ! -f "${YQ_CMD}" ]; then
+  mkdir -p "$(dirname "${YQ_CMD}")"
+  curl -fsSL -o "${PORTABLE_CACHE_DIR}/yq/bin/yq" https://github.com/mikefarah/yq/releases/download/3.1.0/yq_darwin_amd64
+  chmod +x "${YQ_CMD}"
+fi
+exec "${YQ_CMD}" "$@"

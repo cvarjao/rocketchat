@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+if [[ $0 != $BASH_SOURCE ]]; then
+  pushd . > /dev/null
+  THIS_SCRIPT_FILE="${BASH_SOURCE[0]}"
+  while([ -h "${THIS_SCRIPT_FILE}" ]); do cd `dirname "$THIS_SCRIPT_FILE"`; SCRIPT_PATH=`readlink "${THIS_SCRIPT_FILE}"`; done
+  cd `dirname ${THIS_SCRIPT_FILE}` > /dev/null;
+  THIS_SCRIPT_PATH=`pwd`;
+  PORTABLE_ROOT_DIR=`pwd`
+  popd  > /dev/null
+
+
+  export PORTABLE_BIN_DIR="${PORTABLE_ROOT_DIR}/bin"
+  export PORTABLE_LIB_DIR="${PORTABLE_ROOT_DIR}/lib"
+  export PORTABLE_CONF_DIR="${PORTABLE_ROOT_DIR}/conf"
+  export PORTABLE_DATA_DIR="${PORTABLE_ROOT_DIR}/data"
+  export PORTABLE_CACHE_DIR="${PORTABLE_ROOT_DIR}/cache"
+
+  export PATH="${PORTABLE_BIN_DIR}:${PATH}"
+else
+  echo "FATAL: This script can only be sourced!"
+  exit 1
+fi

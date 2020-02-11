@@ -1,0 +1,5 @@
+.charts/
+.k8s/
+.DS_Store
+.portable/cache/
+.portable/conf/

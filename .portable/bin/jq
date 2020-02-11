@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+JQ_VERSION='1.6'
+JQ_CMD="${PORTABLE_CACHE_DIR}/jq-${JQ_VERSION}/bin/jq"
+if [ ! -f "${JQ_CMD}" ]; then
+  set -x
+  mkdir -p "$(dirname "${JQ_CMD}")"
+  curl -fsSL -o "${JQ_CMD}" "https://github.com/stedolan/jq/releases/download/jq-${JQ_VERSION}/jq-osx-amd64"
+  chmod +x "${JQ_CMD}"
+  set +x
+fi
+exec "${JQ_CMD}" "$@"

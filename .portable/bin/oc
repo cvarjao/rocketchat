@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+OC_CMD="${PORTABLE_CACHE_DIR}/oc/bin/oc"
+if [ ! -f "${OC_CMD}" ]; then
+  mkdir -p "$(dirname "${OC_CMD}")"
+  curl -fsSL https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-mac.zip > "${PORTABLE_CACHE_DIR}/oc.zip"
+  unzip -qo -d "$(dirname "${OC_CMD}")" "${PORTABLE_CACHE_DIR}/oc.zip" oc
+  rm "${PORTABLE_CACHE_DIR}/oc.zip"
+fi
+
+exec "${OC_CMD}" "$@"

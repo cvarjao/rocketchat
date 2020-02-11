@@ -1,0 +1,242 @@
+{
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "rocketchat"
+  },
+  "parameters": [
+    {
+      "name": "INSTANCE",
+      "required": true
+    }
+  ],
+  "objects": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "rocketchat",
+          "helm.sh/chart": "rocketchat-2.0.0"
+        },
+        "name": "${INSTANCE}-rocketchat"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/instance": "${INSTANCE}",
+            "app.kubernetes.io/name": "rocketchat"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": 1,
+            "maxUnavailable": 1
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "checksum/secret": "33070d4e1a7d3e0bbac939543af742f027d1cd4ac6dfff05f8c4119404251d4b",
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            },
+            "labels": {
+              "app.kubernetes.io/instance": "${INSTANCE}",
+              "app.kubernetes.io/name": "rocketchat"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "MONGO_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${INSTANCE}-mongodb",
+                        "key": "mongodb-root-password"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGO_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${INSTANCE}-mongodb",
+                        "key": "mongodb-password"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DEPLOY_PLATFORM",
+                    "value": "helm-chart"
+                  },
+                  {
+                    "name": "INSTANCE_IP",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "status.podIP"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGO_URL",
+                    "value": "mongodb://rocketchat:$(MONGO_PASSWORD)@${INSTANCE}-mongodb:27017/rocketchat"
+                  },
+                  {
+                    "name": "MONGO_OPLOG_URL",
+                    "value": "mongodb://root:$(MONGO_ROOT_PASSWORD)@${INSTANCE}-mongodb:27017/local?replicaSet=rs0&authSource=admin"
+                  }
+                ],
+                "image": "rocketchat:2.1.1",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/api/info",
+                    "port": "http"
+                  },
+                  "initialDelaySeconds": 60,
+                  "timeoutSeconds": 5
+                },
+                "name": "rocketchat",
+                "ports": [
+                  {
+                    "containerPort": 3000,
+                    "name": "http"
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/api/info",
+                    "port": "http"
+                  },
+                  "initialDelaySeconds": 10,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "50m",
+                    "memory": "256Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/app/uploads",
+                    "name": "rocket-data"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {},
+                "name": "rocket-data"
+              }
+            ],
+            "enableServiceLinks": false,
+            "automountServiceAccountToken": false
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "rocketchat",
+          "helm.sh/chart": "rocketchat-2.0.0"
+        },
+        "name": "${INSTANCE}-rocketchat"
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 80,
+            "protocol": "TCP",
+            "targetPort": "http"
+          }
+        ],
+        "selector": {
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "app.kubernetes.io/name": "rocketchat"
+        },
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "kind": "Route",
+      "apiVersion": "route.openshift.io/v1",
+      "metadata": {
+        "name": "${INSTANCE}-rocketchat",
+        "creationTimestamp": null,
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "helm.sh/chart": "rocketchat-2.0.0"
+        }
+      },
+      "spec": {
+        "host": "",
+        "to": {
+          "kind": "Service",
+          "name": "${INSTANCE}-rocketchat",
+          "weight": 100
+        },
+        "port": {
+          "targetPort": "http"
+        },
+        "tls": {
+          "insecureEdgeTerminationPolicy": "Redirect",
+          "termination": "edge"
+        }
+      },
+      "status": {
+        "ingress": null
+      }
+    },
+    {
+      "kind": "ImageStream",
+      "apiVersion": "image.openshift.io/v1",
+      "metadata": {
+        "name": "rocketchat",
+        "creationTimestamp": null
+      },
+      "spec": {
+        "lookupPolicy": {
+          "local": true
+        },
+        "tags": [
+          {
+            "name": "2.1.1",
+            "annotations": null,
+            "from": {
+              "kind": "DockerImage",
+              "name": "docker.io/rocketchat/rocket.chat:2.1.1"
+            },
+            "generation": null,
+            "importPolicy": {},
+            "referencePolicy": {
+              "type": "Local"
+            }
+          }
+        ]
+      },
+      "status": {
+        "dockerImageRepository": ""
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
+HELM_CMD="${PORTABLE_CACHE_DIR}/helm/bin/helm"
+if [ ! -f "${HELM_CMD}" ]; then
+  mkdir -p "$(dirname "${HELM_CMD}")"
+  curl -fsSL https://get.helm.sh/helm-v3.0.3-darwin-amd64.tar.gz | \
+  gtar -xz --file=- --strip-components=1 "--directory=$(dirname "${HELM_CMD}")" --no-selinux --wildcards '*/helm'
+fi
+
+export XDG_CACHE_HOME="${PORTABLE_CACHE_DIR}/helm/cache"
+export XDG_CONFIG_HOME="${PORTABLE_CONF_DIR}/helm/config"
+export XDG_DATA_HOME="${PORTABLE_DATA_DIR}/helm/data"
+
+exec "${HELM_CMD}" "$@"
