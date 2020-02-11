@@ -8,7 +8,7 @@
 
 
 ## Prerequisites
-  # make sure your `oc` has been properly loggedin (`oc login`), and the current project has been defined to the correct one (`oc project <name>`)
+  make sure you have properly loggedin using (`oc login`), and the current project has been defined to the correct one (`oc project <name>`)
   ```
   oc login <openshift-cluster-url> --token=<hidden>
   oc project <name>
