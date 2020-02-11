@@ -28,7 +28,7 @@ However, vanilla kubernetes doesn't take full benefit from Openshift (e.g.: Imag
   - Apply [Kubernetes Recommended Labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
 
 # Operations
-  Please see [OPERATIONS.md](.OPERATIONS.md) for operations manual
+  Please see [OPERATIONS.md](OPERATIONS.md) for operations manual
 # TODO
   - Add `Jenkinsfile` or some CI/CD that calls the script (e.g.: GitHub Actions)
   - Bash/Shell scripts gets big rather quick. Investigate some other framework/language for orchestrating CI/CD tasks.
