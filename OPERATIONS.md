@@ -33,9 +33,9 @@
   ```
 
 ## Uninstall
-  ```
-  oc delete all,svc,secret,pvc -l 'app.kubernetes.io/part-of=rocketchat-prod'
-  ```
+```
+oc delete all,svc,secret,pvc -l 'app.kubernetes.io/part-of=rocketchat-prod'
+```
 
 ## Backup
 
@@ -53,36 +53,48 @@ TODO: Create a script automating the restore procedure
 
 For restoring RocketChat database to a previous state you will need to :
   1. Take RocketChat down:
+
     ```
     oc scale deployment/rocketchat-prod-rocketchat --replicas=0
     # wait until  there is no pods running
     ```
     WARNING: This will cause an outage!!!
+
   2. Scale MongoDB down:
+
     ```
     oc scale deployment/rocketchat-prod-mongodb-arbiter   --replicas=0
     oc scale deployment/rocketchat-prod-mongodb-secondary --replicas=0
     oc scale deployment/rocketchat-prod-mongodb-primary   --replicas=0
     ```
+
   3. Delete all MongoDB PVCs, except the backup PVC
+
     ```
     oc delete pvc -l 'app.kubernetes.io/name=mongodb,!backup'
     ```
+
   4. Temporarily mount the backup volume
+
     ```
     oc set volumes StatefulSet/rocketchat-prod-mongodb-primary --add --name=backup --mount-path=/media/backup --type=pvc --claim-name=rocketchat-prod-mongodb-backup
     ```
+
   5. Scale MongoDB primary up, and restore from a remote shell
+
     Scale MongoDB to 1 primary replica:
+
     ```
     oc scale StatefulSet/rocketchat-prod-mongodb-primary --replicas=1
     # Verify that the StatefulSet has been succesfully started, and a PVC has been recreated for the 1st replica
     ```
     Connect to a remote/pod terminal of the first replica of primary MongoDB
+
     ```
     oc rsh pod/rocketchat-prod-mongodb-primary-0
     ```
     and run:
+
     ```
     #Find the backup archive you want to restore:
     ls -1 /media/backup/ | sort | tail -n10
@@ -95,11 +107,15 @@ For restoring RocketChat database to a previous state you will need to :
 
     # wait until backup is complete!
     ```
+
   7. Remove temporary mount of the backup volume
+
     ```
     oc set volumes StatefulSet/rocketchat-prod-mongodb-primary --remove --name=backup
     ```
+
   8. Scale RocketChat and other MongoDB StatefulSets
+
     ```
     oc scale deployment/rocketchat-prod-mongodb-arbiter   --replicas=1
     oc scale deployment/rocketchat-prod-mongodb-secondary --replicas=1
