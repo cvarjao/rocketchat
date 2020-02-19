@@ -1,0 +1,263 @@
+{
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "prometheus"
+  },
+  "parameters": [
+    {
+      "name": "NAMESPACE",
+      "required": true
+    }
+  ],
+  "objects": [
+    {
+      "apiVersion": "v1",
+      "data": {
+        "alerting_rules.yml": "{}\n",
+        "alerts": "{}\n",
+        "prometheus.yml": "global:\n  evaluation_interval: 1m\n  scrape_interval: 1m\n  scrape_timeout: 10s\nrule_files:\n- /etc/config/recording_rules.yml\n- /etc/config/alerting_rules.yml\n- /etc/config/rules\n- /etc/config/alerts\nscrape_configs:\n- job_name: prometheus\n  static_configs:\n  - targets:\n    - localhost:9090\n- job_name: kubernetes-pods\n  kubernetes_sd_configs:\n  - role: pod\n    namespaces:\n      names:\n      - ${NAMESPACE}\n  relabel_configs:\n  - action: keep\n    regex: true\n    source_labels:\n    - __meta_kubernetes_pod_annotation_prometheus_io_scrape\n  - action: replace\n    regex: (.+)\n    source_labels:\n    - __meta_kubernetes_pod_annotation_prometheus_io_path\n    target_label: __metrics_path__\n  - action: replace\n    regex: ([^:]+)(?::\\d+)?;(\\d+)\n    replacement: $1:$2\n    source_labels:\n    - __address__\n    - __meta_kubernetes_pod_annotation_prometheus_io_port\n    target_label: __address__\n  - action: labelmap\n    regex: __meta_kubernetes_pod_label_(.+)\n  - action: replace\n    source_labels:\n    - __meta_kubernetes_namespace\n    target_label: kubernetes_namespace\n  - action: replace\n    source_labels:\n    - __meta_kubernetes_pod_name\n    target_label: kubernetes_pod_name\n",
+        "recording_rules.yml": "{}\n",
+        "rules": "{}\n"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "labels": {
+          "app": "prometheus",
+          "chart": "prometheus-10.4.0",
+          "component": "server",
+          "heritage": "Helm",
+          "release": "rocketchat-prometheus"
+        },
+        "name": "rocketchat-prometheus-server"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "DeploymentConfig",
+      "metadata": {
+        "labels": {
+          "app": "prometheus",
+          "chart": "prometheus-10.4.0",
+          "component": "server",
+          "heritage": "Helm",
+          "release": "rocketchat-prometheus"
+        },
+        "name": "rocketchat-prometheus-server"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "app": "prometheus",
+          "component": "server",
+          "release": "rocketchat-prometheus"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "prometheus",
+              "chart": "prometheus-10.4.0",
+              "component": "server",
+              "heritage": "Helm",
+              "release": "rocketchat-prometheus"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--volume-dir=/etc/config",
+                  "--webhook-url=http://127.0.0.1:9090/-/reload"
+                ],
+                "image": "jimmidyson/configmap-reload:v0.3.0",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "prometheus-server-configmap-reload",
+                "resources": {
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "80Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "100Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/config",
+                    "name": "config-volume",
+                    "readOnly": true
+                  }
+                ]
+              },
+              {
+                "args": [
+                  "--storage.tsdb.retention.time=15d",
+                  "--config.file=/etc/config/prometheus.yml",
+                  "--storage.tsdb.path=/data",
+                  "--web.console.libraries=/etc/prometheus/console_libraries",
+                  "--web.console.templates=/etc/prometheus/consoles",
+                  "--web.enable-lifecycle"
+                ],
+                "image": "prom/prometheus:v2.15.2",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/-/healthy",
+                    "port": 9090
+                  },
+                  "initialDelaySeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 30
+                },
+                "name": "prometheus-server",
+                "ports": [
+                  {
+                    "containerPort": 9090
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/-/ready",
+                    "port": 9090
+                  },
+                  "initialDelaySeconds": 30,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 30
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "80Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "100Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/config",
+                    "name": "config-volume"
+                  },
+                  {
+                    "mountPath": "/data",
+                    "name": "storage-volume",
+                    "subPath": ""
+                  }
+                ]
+              }
+            ],
+            "serviceAccountName": "rocketchat-prometheus-server",
+            "terminationGracePeriodSeconds": 300,
+            "volumes": [
+              {
+                "configMap": {
+                  "name": "rocketchat-prometheus-server"
+                },
+                "name": "config-volume"
+              },
+              {
+                "emptyDir": {},
+                "name": "storage-volume"
+              }
+            ]
+          }
+        },
+        "strategy": {
+          "resources": {
+            "requests": {
+              "cpu": "10m",
+              "memory": "80Mi"
+            },
+            "limits": {
+              "cpu": "20m",
+              "memory": "80Mi"
+            }
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app": "prometheus",
+          "chart": "prometheus-10.4.0",
+          "component": "server",
+          "heritage": "Helm",
+          "release": "rocketchat-prometheus"
+        },
+        "name": "rocketchat-prometheus-server"
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "http",
+            "port": 80,
+            "protocol": "TCP",
+            "targetPort": 9090
+          }
+        ],
+        "selector": {
+          "app": "prometheus",
+          "component": "server",
+          "release": "rocketchat-prometheus"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "labels": {
+          "app": "prometheus",
+          "chart": "prometheus-10.4.0",
+          "component": "server",
+          "heritage": "Helm",
+          "release": "rocketchat-prometheus"
+        },
+        "name": "rocketchat-prometheus-server"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "creationTimestamp": null,
+        "labels": {
+          "grafana_datasource": "1"
+        },
+        "name": "prometheus-grafana-datasource"
+      },
+      "data": {
+        "datasource.yaml": "apiVersion: 1\ndatasources:\n- name: Prometheus\n  type: prometheus\n  access: proxy\n  orgId: 1\n  url: http://rocketchat-prometheus-server:80  \n  isDefault: true\n  version: 1\n  editable: false"
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "labels": {},
+        "name": "rocketchat-prometheus-server"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "ClusterRole",
+        "name": "view"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "rocketchat-prometheus-server",
+          "namespace": "${NAMESPACE}"
+        }
+      ]
+    }
+  ]
+}

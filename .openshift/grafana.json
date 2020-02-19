@@ -1,0 +1,432 @@
+{
+  "kind": "Template",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "grafana"
+  },
+  "parameters": [
+    {
+      "name": "NAMESPACE",
+      "required": true
+    }
+  ],
+  "objects": [
+    {
+      "apiVersion": "v1",
+      "data": {
+        "provider.yaml": "apiVersion: 1\nproviders:\n- name: 'sidecarProvider'\n  orgId: 1\n  folder: ''\n  type: file\n  disableDeletion: false\n  allowUiUpdates: false\n  options:\n    path: /tmp/dashboards"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana-config-dashboards"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "grafana.ini": "[analytics]\ncheck_for_updates = true\n[grafana_net]\nurl = https://grafana.net\n[log]\nmode = console\n[paths]\ndata = /var/lib/grafana/data\nlogs = /var/log/grafana\nplugins = /var/lib/grafana/plugins\nprovisioning = /etc/grafana/provisioning\n"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "DeploymentConfig",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "app": "grafana",
+          "release": "rocketchat-grafana"
+        },
+        "strategy": {
+          "type": "Recreate",
+          "activeDeadlineSeconds": 21600,
+          "recreateParams": {
+            "timeoutSeconds": 600
+          },
+          "resources": {
+            "requests": {
+              "cpu": "10m",
+              "memory": "80Mi"
+            },
+            "limits": {
+              "cpu": "20m",
+              "memory": "80Mi"
+            }
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "checksum/config": "e433b92e219d8d1689f6e18bb3e4532725e5b5af7cedc2746871d85eb72d49ea",
+              "checksum/dashboards-json-config": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+              "checksum/sc-dashboard-provider-config": "2d0a39930b8814084b4409385c92e29fab2deec3c381b7e890c5d2cc12ad02ce",
+              "checksum/secret": "f93cf7ec273d492a4396fb6167b9d303ca3ffae675cbcdec36c23af37d1caabd"
+            },
+            "labels": {
+              "app": "grafana",
+              "release": "rocketchat-grafana"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "METHOD",
+                    "value": "WATCH"
+                  },
+                  {
+                    "name": "LABEL",
+                    "value": "grafana_dashboard"
+                  },
+                  {
+                    "name": "FOLDER",
+                    "value": "/tmp/dashboards"
+                  },
+                  {
+                    "name": "RESOURCE",
+                    "value": "both"
+                  }
+                ],
+                "image": "kiwigrid/k8s-sidecar:0.1.75",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "grafana-sc-dashboard",
+                "resources": {
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "80Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "80Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/tmp/dashboards",
+                    "name": "sc-dashboard-volume"
+                  }
+                ]
+              },
+              {
+                "env": [
+                  {
+                    "name": "GF_SECURITY_ADMIN_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "admin-user",
+                        "name": "rocketchat-grafana"
+                      }
+                    }
+                  },
+                  {
+                    "name": "GF_SECURITY_ADMIN_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "admin-password",
+                        "name": "rocketchat-grafana"
+                      }
+                    }
+                  }
+                ],
+                "image": "grafana/grafana:6.6.0",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 10,
+                  "httpGet": {
+                    "path": "/api/health",
+                    "port": 3000
+                  },
+                  "initialDelaySeconds": 60,
+                  "timeoutSeconds": 30
+                },
+                "name": "grafana",
+                "ports": [
+                  {
+                    "containerPort": 80,
+                    "name": "service",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 3000,
+                    "name": "grafana",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/api/health",
+                    "port": 3000
+                  }
+                },
+                "resources": {
+                  "requests": {
+                    "cpu": "10m",
+                    "memory": "80Mi"
+                  },
+                  "limits": {
+                    "cpu": "200m",
+                    "memory": "80Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/grafana/grafana.ini",
+                    "name": "config",
+                    "subPath": "grafana.ini"
+                  },
+                  {
+                    "mountPath": "/var/lib/grafana",
+                    "name": "storage"
+                  },
+                  {
+                    "mountPath": "/tmp/dashboards",
+                    "name": "sc-dashboard-volume"
+                  },
+                  {
+                    "mountPath": "/etc/grafana/provisioning/dashboards/sc-dashboardproviders.yaml",
+                    "name": "sc-dashboard-provider",
+                    "subPath": "provider.yaml"
+                  },
+                  {
+                    "mountPath": "/etc/grafana/provisioning/datasources",
+                    "name": "sc-datasources-volume"
+                  }
+                ]
+              }
+            ],
+            "initContainers": [
+              {
+                "env": [
+                  {
+                    "name": "METHOD",
+                    "value": "LIST"
+                  },
+                  {
+                    "name": "LABEL",
+                    "value": "grafana_datasource"
+                  },
+                  {
+                    "name": "FOLDER",
+                    "value": "/etc/grafana/provisioning/datasources"
+                  },
+                  {
+                    "name": "RESOURCE",
+                    "value": "both"
+                  }
+                ],
+                "image": "kiwigrid/k8s-sidecar:0.1.75",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "grafana-sc-datasources",
+                "resources": {},
+                "volumeMounts": [
+                  {
+                    "mountPath": "/etc/grafana/provisioning/datasources",
+                    "name": "sc-datasources-volume"
+                  }
+                ]
+              }
+            ],
+            "serviceAccountName": "rocketchat-grafana",
+            "volumes": [
+              {
+                "configMap": {
+                  "name": "rocketchat-grafana"
+                },
+                "name": "config"
+              },
+              {
+                "emptyDir": {},
+                "name": "storage"
+              },
+              {
+                "emptyDir": {},
+                "name": "sc-dashboard-volume"
+              },
+              {
+                "configMap": {
+                  "name": "rocketchat-grafana-config-dashboards"
+                },
+                "name": "sc-dashboard-provider"
+              },
+              {
+                "emptyDir": {},
+                "name": "sc-datasources-volume"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+      "kind": "Role",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "configmaps",
+            "secrets"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1beta1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "rocketchat-grafana"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "rocketchat-grafana",
+          "namespace": "${NAMESPACE}"
+        }
+      ]
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "admin-password": "b0RLMHpSR2NrbE42YVIxMTR2TWZ2ZDRsenlGbFVWQjc3b3JzVWlYeg==",
+        "admin-user": "YWRtaW4=",
+        "ldap-toml": ""
+      },
+      "kind": "Secret",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      },
+      "type": "Opaque"
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "service",
+            "port": 80,
+            "protocol": "TCP",
+            "targetPort": 3000
+          }
+        ],
+        "selector": {
+          "app": "grafana",
+          "release": "rocketchat-grafana"
+        },
+        "type": "ClusterIP"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        },
+        "name": "rocketchat-grafana"
+      }
+    },
+    {
+      "kind": "Route",
+      "apiVersion": "route.openshift.io/v1",
+      "metadata": {
+        "name": "rocketchat-grafana",
+        "creationTimestamp": null,
+        "labels": {
+          "app.kubernetes.io/name": "rocketchat",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/instance": "rocketchat-grafana",
+          "helm.sh/chart": "grafana-4.6.3"
+        }
+      },
+      "spec": {
+        "host": "",
+        "to": {
+          "kind": "Service",
+          "name": "rocketchat-grafana",
+          "weight": 100
+        },
+        "port": {
+          "targetPort": "service"
+        },
+        "tls": {
+          "insecureEdgeTerminationPolicy": "Redirect",
+          "termination": "edge"
+        }
+      },
+      "status": {
+        "ingress": null
+      }
+    }
+  ]
+}

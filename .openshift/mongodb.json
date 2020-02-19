@@ -10,6 +10,10 @@
       "required": true
     },
     {
+      "name": "NAMESPACE",
+      "required": true
+    },
+    {
       "name": "MONGODB_REPLICA_KEY",
       "required": true,
       "generate": "expression",
@@ -100,7 +104,7 @@
                   },
                   {
                     "name": "MONGODB_DISABLE_SYSTEM_LOG",
-                    "value": "no"
+                    "value": "yes"
                   },
                   {
                     "name": "MONGODB_POD_NAME",
@@ -153,7 +157,7 @@
                     "value": "no"
                   }
                 ],
-                "image": "mongodb:4.2.3",
+                "image": "docker-registry.default.svc:5000/${NAMESPACE}/mongodb:4.2.3",
                 "imagePullPolicy": "IfNotPresent",
                 "livenessProbe": {
                   "failureThreshold": 6,
@@ -227,14 +231,16 @@
         "serviceName": "${INSTANCE}-mongodb-headless",
         "template": {
           "metadata": {
+            "annotations": {
+              "prometheus.io/port": "9216",
+              "prometheus.io/scrape": "true",
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            },
             "labels": {
               "chart": "mongodb-7.8.2",
               "component": "primary",
               "app.kubernetes.io/name": "mongodb",
               "app.kubernetes.io/instance": "${INSTANCE}"
-            },
-            "annotations": {
-              "alpha.image.policy.openshift.io/resolve-names": "*"
             }
           },
           "spec": {
@@ -255,7 +261,7 @@
                   },
                   {
                     "name": "MONGODB_DISABLE_SYSTEM_LOG",
-                    "value": "no"
+                    "value": "yes"
                   },
                   {
                     "name": "MONGODB_POD_NAME",
@@ -321,7 +327,7 @@
                     "value": "no"
                   }
                 ],
-                "image": "mongodb:4.2.3",
+                "image": "docker-registry.default.svc:5000/${NAMESPACE}/mongodb:4.2.3",
                 "imagePullPolicy": "IfNotPresent",
                 "livenessProbe": {
                   "exec": {
@@ -374,6 +380,77 @@
                     "subPath": null
                   }
                 ]
+              },
+              {
+                "command": [
+                  "sh",
+                  "-c",
+                  "curl -fsSL http://localhost:27017 -o /dev/null && exec /bin/mongodb_exporter --mongodb.uri mongodb://root:${MONGODB_ROOT_PASSWORD}@localhost:27017/admin"
+                ],
+                "env": [
+                  {
+                    "name": "MONGODB_POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-root-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_URI",
+                    "value": "mongodb://root:$(MONGODB_ROOT_PASSWORD)@localhost:27017/admin"
+                  }
+                ],
+                "image": "docker-registry.default.svc:5000/${NAMESPACE}/mongodb-exporter:0.10.0",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": "metrics"
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "metrics",
+                "ports": [
+                  {
+                    "containerPort": 9216,
+                    "name": "metrics"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": "metrics"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "50m",
+                    "memory": "80Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "10Mi"
+                  }
+                }
               }
             ],
             "initContainers": null,
@@ -404,7 +481,7 @@
       },
       "spec": {
         "podManagementPolicy": "Parallel",
-        "replicas": 1,
+        "replicas": 0,
         "selector": {
           "matchLabels": {
             "component": "secondary",
@@ -415,14 +492,16 @@
         "serviceName": "${INSTANCE}-mongodb-headless",
         "template": {
           "metadata": {
+            "annotations": {
+              "prometheus.io/port": "9216",
+              "prometheus.io/scrape": "true",
+              "alpha.image.policy.openshift.io/resolve-names": "*"
+            },
             "labels": {
               "chart": "mongodb-7.8.2",
               "component": "secondary",
               "app.kubernetes.io/name": "mongodb",
               "app.kubernetes.io/instance": "${INSTANCE}"
-            },
-            "annotations": {
-              "alpha.image.policy.openshift.io/resolve-names": "*"
             }
           },
           "spec": {
@@ -443,7 +522,7 @@
                   },
                   {
                     "name": "MONGODB_DISABLE_SYSTEM_LOG",
-                    "value": "no"
+                    "value": "yes"
                   },
                   {
                     "name": "MONGODB_POD_NAME",
@@ -496,7 +575,7 @@
                     "value": "no"
                   }
                 ],
-                "image": "mongodb:4.2.3",
+                "image": "docker-registry.default.svc:5000/${NAMESPACE}/mongodb:4.2.3",
                 "imagePullPolicy": "IfNotPresent",
                 "livenessProbe": {
                   "exec": {
@@ -549,6 +628,77 @@
                     "subPath": null
                   }
                 ]
+              },
+              {
+                "command": [
+                  "sh",
+                  "-c",
+                  "curl -fsSL http://localhost:27017 -o /dev/null && exec /bin/mongodb_exporter --mongodb.uri mongodb://root:${MONGODB_ROOT_PASSWORD}@localhost:27017/admin"
+                ],
+                "env": [
+                  {
+                    "name": "MONGODB_POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_ROOT_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "mongodb-root-password",
+                        "name": "${INSTANCE}-mongodb"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MONGODB_URI",
+                    "value": "mongodb://root:$(MONGODB_ROOT_PASSWORD)@localhost:27017/admin"
+                  }
+                ],
+                "image": "docker-registry.default.svc:5000/${NAMESPACE}/mongodb-exporter:0.10.0",
+                "imagePullPolicy": "IfNotPresent",
+                "livenessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": "metrics"
+                  },
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "name": "metrics",
+                "ports": [
+                  {
+                    "containerPort": 9216,
+                    "name": "metrics"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/metrics",
+                    "port": "metrics"
+                  },
+                  "initialDelaySeconds": 5,
+                  "periodSeconds": 5,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "50m",
+                    "memory": "80Mi"
+                  },
+                  "requests": {
+                    "cpu": "20m",
+                    "memory": "10Mi"
+                  }
+                }
               }
             ],
             "initContainers": null,
@@ -610,6 +760,11 @@
             "name": "mongodb",
             "port": 27017,
             "targetPort": "mongodb"
+          },
+          {
+            "name": "metrics",
+            "port": 9216,
+            "targetPort": "metrics"
           }
         ],
         "selector": {
@@ -672,6 +827,15 @@
                       {
                         "name": "MONGODB_REPLICA_SET_NAME",
                         "value": "rs0"
+                      },
+                      {
+                        "name": "MONGODB_ROOT_PASSWORD",
+                        "valueFrom": {
+                          "secretKeyRef": {
+                            "key": "mongodb-root-password",
+                            "name": "${INSTANCE}-mongodb"
+                          }
+                        }
                       },
                       {
                         "name": "MONGODB_ROOT_PASSWORD",
@@ -750,6 +914,37 @@
             "from": {
               "kind": "DockerImage",
               "name": "docker.io/bitnami/mongodb:4.2.3-debian-10-r14"
+            },
+            "generation": null,
+            "importPolicy": {},
+            "referencePolicy": {
+              "type": "Local"
+            }
+          }
+        ]
+      },
+      "status": {
+        "dockerImageRepository": ""
+      }
+    },
+    {
+      "kind": "ImageStream",
+      "apiVersion": "image.openshift.io/v1",
+      "metadata": {
+        "name": "mongodb-exporter",
+        "creationTimestamp": null
+      },
+      "spec": {
+        "lookupPolicy": {
+          "local": true
+        },
+        "tags": [
+          {
+            "name": "0.10.0",
+            "annotations": null,
+            "from": {
+              "kind": "DockerImage",
+              "name": "docker.io/bitnami/mongodb-exporter:0.10.0-debian-10-r9"
             },
             "generation": null,
             "importPolicy": {},

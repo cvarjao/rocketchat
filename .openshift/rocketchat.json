@@ -8,12 +8,22 @@
     {
       "name": "INSTANCE",
       "required": true
+    },
+    {
+      "name": "ADMIN_USERNAME",
+      "required": true,
+      "value": "admin"
+    },
+    {
+      "name": "ADMIN_PASSWORD",
+      "required": true,
+      "value": "admin"
     }
   ],
   "objects": [
     {
-      "apiVersion": "apps/v1",
-      "kind": "Deployment",
+      "apiVersion": "v1",
+      "kind": "DeploymentConfig",
       "metadata": {
         "labels": {
           "app.kubernetes.io/instance": "${INSTANCE}",
@@ -26,17 +36,29 @@
       "spec": {
         "replicas": 1,
         "selector": {
-          "matchLabels": {
-            "app.kubernetes.io/instance": "${INSTANCE}",
-            "app.kubernetes.io/name": "rocketchat"
-          }
+          "app.kubernetes.io/instance": "${INSTANCE}",
+          "app.kubernetes.io/name": "rocketchat"
         },
         "strategy": {
           "rollingUpdate": {
             "maxSurge": 1,
             "maxUnavailable": 1
           },
-          "type": "RollingUpdate"
+          "type": "Recreate",
+          "activeDeadlineSeconds": 21600,
+          "recreateParams": {
+            "timeoutSeconds": 600
+          },
+          "resources": {
+            "requests": {
+              "cpu": "10m",
+              "memory": "80Mi"
+            },
+            "limits": {
+              "cpu": "20m",
+              "memory": "80Mi"
+            }
+          }
         },
         "template": {
           "metadata": {
@@ -90,6 +112,40 @@
                   {
                     "name": "MONGO_OPLOG_URL",
                     "value": "mongodb://root:$(MONGO_ROOT_PASSWORD)@${INSTANCE}-mongodb:27017/local?replicaSet=rs0&authSource=admin"
+                  },
+                  {
+                    "name": "OVERWRITE_SETTING_Show_Setup_Wizard",
+                    "value": "completed"
+                  },
+                  {
+                    "name": "ADMIN_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${INSTANCE}-rocketchat-admin",
+                        "key": "admin-user"
+                      }
+                    }
+                  },
+                  {
+                    "name": "ADMIN_PASS",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "name": "${INSTANCE}-rocketchat-admin",
+                        "key": "admin-password"
+                      }
+                    }
+                  },
+                  {
+                    "name": "ADMIN_EMAIL",
+                    "value": "admin@example.com"
+                  },
+                  {
+                    "name": "OVERWRITE_SETTING_API_Enable_Rate_Limiter",
+                    "value": "false"
+                  },
+                  {
+                    "name": "API_Enable_Rate_Limiter",
+                    "value": "false"
                   }
                 ],
                 "image": "rocketchat:2.1.1",
@@ -120,7 +176,7 @@
                 "resources": {
                   "limits": {
                     "cpu": "500m",
-                    "memory": "512Mi"
+                    "memory": "700Mi"
                   },
                   "requests": {
                     "cpu": "50m",
@@ -141,7 +197,6 @@
                 "name": "rocket-data"
               }
             ],
-            "enableServiceLinks": false,
             "automountServiceAccountToken": false
           }
         }
@@ -237,6 +292,19 @@
       "status": {
         "dockerImageRepository": ""
       }
+    },
+    {
+      "kind": "Secret",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "${INSTANCE}-rocketchat-admin",
+        "creationTimestamp": null
+      },
+      "stringData": {
+        "admin-user": "${ADMIN_USERNAME}",
+        "admin-password": "${ADMIN_PASSWORD}"
+      },
+      "type": "Opaque"
     }
   ]
 }
